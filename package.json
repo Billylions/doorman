@@ -1,0 +1,77 @@
+{
+  "name": "doorman",
+  "version": "0.1.0",
+  "description": "Let your AI finish the job without getting stuck on API keys. Doorman holds your keys on your Mac; your AI uses them through placeholders, so real keys never enter the chat.",
+  "type": "module",
+  "bin": {
+    "doorman": "src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "mcp": "node src/cli.js mcp",
+    "ui": "node src/cli.js ui",
+    "app": "electron .",
+    "icons": "electron electron/make-icons.js",
+    "dist": "electron-builder --mac dir"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin"
+  ],
+  "keywords": [
+    "mcp",
+    "secrets",
+    "api-keys",
+    "claude",
+    "cursor",
+    "ai-agents",
+    "keychain"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "main": "electron/main.js",
+  "author": {
+    "name": "Bill Ryan Cabral"
+  },
+  "build": {
+    "appId": "studio.launchlab.doorman",
+    "productName": "Doorman",
+    "asar": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**",
+      "electron/main.js",
+      "build/trayTemplate*.png",
+      "package.json"
+    ],
+    "protocols": [
+      {
+        "name": "Doorman",
+        "schemes": [
+          "doorman"
+        ]
+      }
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "target": [
+        "dir"
+      ],
+      "darkModeSupport": true
+    }
+  }
+}

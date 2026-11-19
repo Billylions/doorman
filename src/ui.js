@@ -119,6 +119,8 @@ export function startUi({ port = 0 } = {}) {
         const body = await readJson(req);
         return send(200, { saved: await importKeys(body.text, body.picks || [], body.room) });
       }
+      if (url.pathname === '/api/prefs' && req.method === 'GET') return send(200, { prefs: vault.getPrefs() });
+      if (url.pathname === '/api/prefs' && req.method === 'POST') return send(200, { prefs: vault.setPrefs(await readJson(req)) });
       if (url.pathname === '/api/audit' && req.method === 'GET') return send(200, { entries: vault.readAudit(30).reverse() });
       if (url.pathname === '/api/setup' && req.method === 'GET') return send(200, setupInfo());
       return send(404, { error: 'Not found' });

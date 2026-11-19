@@ -31,7 +31,8 @@ const RAW = String.raw`<!doctype html>
     background: radial-gradient(circle at 14px 0, var(--red) 13px, transparent 13.5px) 0 0 / 56px 14px repeat-x,
                 radial-gradient(circle at 42px 0, #fff3d6 13px, transparent 13.5px) 0 0 / 56px 14px repeat-x; }
 
-  main { max-width: 820px; margin: 0 auto; padding: 44px 20px 64px; }
+  main { max-width: 1560px; margin: 0 auto; padding: 44px 32px 64px; }
+  .checkin { max-width: 820px; }
 
   /* Lobby header */
   .lobby { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 30px; }
@@ -48,6 +49,36 @@ const RAW = String.raw`<!doctype html>
   h2 { font-family: var(--serif); font-size: 20px; margin: 0 0 16px; display: flex; align-items: baseline; gap: 10px; }
   h2 small { font-family: -apple-system, sans-serif; font-size: 13px; font-weight: 400; color: var(--muted); }
 
+  /* Rack size: cozy (default), compact, minimal. Columns fill whatever width the window has. */
+  .rackhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .sizes { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--card); }
+  .sizes button { border: 0; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 999px; }
+  .sizes button:hover { color: var(--ink); }
+  .sizes button.on { background: var(--red); color: #fff3d6; }
+  #list[data-size="compact"] .rack { grid-template-columns: repeat(auto-fill, minmax(142px, 156px)); gap: 22px 12px; }
+  #list[data-size="compact"] .paper { padding: 20px 9px 0; }
+  #list[data-size="compact"] .fob-name { font-size: 15px; margin-top: 10px; }
+  #list[data-size="compact"] .fob-name.long { font-size: 13px; }
+  #list[data-size="compact"] .fob-desc { font-size: 11px; }
+  #list[data-size="compact"] .window { padding: 5px; margin: 8px 0; }
+  #list[data-size="compact"] .fob-ph span { font-size: 9.5px; }
+  #list[data-size="compact"] .stub { margin: auto -9px 0; }
+  #list[data-size="compact"] .stub button { font-size: 10.5px; padding: 3px 6px; }
+  #list[data-size="minimal"] .rack { grid-template-columns: repeat(auto-fill, minmax(116px, 128px)); gap: 20px 10px; }
+  #list[data-size="minimal"] .paper { padding: 18px 7px 0; }
+  #list[data-size="minimal"] .paper::before { display: none; }
+  #list[data-size="minimal"] .fob-name { font-size: 14px; margin-top: 8px; text-align: center; }
+  #list[data-size="minimal"] .fob-name.long { font-size: 12px; }
+  #list[data-size="minimal"] .fob-desc, #list[data-size="minimal"] .lockline { display: none; }
+  #list[data-size="minimal"] .window { padding: 4px; margin: 7px 0; }
+  #list[data-size="minimal"] .fob-ph { padding: 5px 6px; }
+  #list[data-size="minimal"] .fob-ph i { display: none; }
+  #list[data-size="minimal"] .fob-ph span { font-size: 9px; text-align: center; }
+  #list[data-size="minimal"] .stub { margin: auto -7px 0; padding: 4px 3px 6px; }
+  #list[data-size="minimal"] .stub button { font-size: 10px; padding: 2px 5px; }
+  #list[data-size="minimal"] .stub .long { display: none; }
+  .stub .short { display: none; }
+  #list[data-size="minimal"] .stub .short { display: inline; }
   /* Key rack: brass rail with paper hotel tags (like a luggage claim tag) */
   .rack { position: relative; padding-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 196px)); gap: 26px 14px; }
   .rack::before { content: ""; position: absolute; left: -6px; right: -6px; top: 0; height: 8px; border-radius: 4px;
@@ -279,7 +310,8 @@ const RAW = String.raw`<!doctype html>
   </section>
 
   <section>
-    <h2>Key rack <small id="count"></small></h2>
+    <div class="rackhead"><h2>Key rack <small id="count"></small></h2>
+      <div class="sizes" id="sizes" title="How big the key tags are"><button data-size="cozy">Cozy</button><button data-size="compact">Compact</button><button data-size="minimal">Minimal</button></div></div>
     <div id="list"></div>
   </section>
 
@@ -441,11 +473,11 @@ const RAW = String.raw`<!doctype html>
       if (s.lockHosts) win.appendChild(el('div', 'lockline', '🔒 Only ' + s.allowedHosts.join(', ')));
 
       var stub = el('div', 'stub');
-      var b1 = el('button', '', 'Copy key'); b1.onclick = function () {
+      var b1 = el('button'); b1.appendChild(el('span', 'long', 'Copy key')); b1.appendChild(el('span', 'short', 'Copy')); b1.title = 'Copy the real key to your clipboard'; b1.onclick = function () {
         api('/api/secrets/' + encodeURIComponent(s.id) + '/reveal', { method: 'POST' })
           .then(function (j) { copy(j.value, 'Key copied. Clipboard clears in 30s.', true); }).catch(function (e) { toast(e.message); });
       };
-      var b2 = el('button', 'out', 'Check out'); b2.onclick = function () {
+      var b2 = el('button', 'out'); b2.appendChild(el('span', 'long', 'Check out')); b2.appendChild(el('span', 'short', 'Out')); b2.title = 'Remove this key from Doorman'; b2.onclick = function () {
         if (!confirm('Check out "' + friendly(s.id) + '"? It will be removed from Doorman and your Keychain.')) return;
         api('/api/secrets/' + encodeURIComponent(s.id), { method: 'DELETE' }).then(function () { toast(friendly(s.id) + ' checked out'); lastKeys = ''; load(); });
       };
@@ -575,6 +607,19 @@ const RAW = String.raw`<!doctype html>
     return { text: e.tool + ' ' + names };
   }
 
+  function setSize(size) {
+    $('list').setAttribute('data-size', size);
+    Array.prototype.forEach.call(document.querySelectorAll('#sizes button'), function (b) { b.classList.toggle('on', b.getAttribute('data-size') === size); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#sizes button'), function (b) {
+    b.onclick = function () {
+      var size = b.getAttribute('data-size');
+      setSize(size);
+      api('/api/prefs', { method: 'POST', body: JSON.stringify({ rackSize: size }) }).catch(function () {});
+    };
+  });
+  setSize('cozy');
+  api('/api/prefs').then(function (j) { setSize(j.prefs.rackSize); }).catch(function () {});
   function load() {
     api('/api/secrets').then(function (j) { render(j.secrets, j.rooms); });
     api('/api/audit').then(function (j) {

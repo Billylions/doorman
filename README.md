@@ -113,6 +113,7 @@ Doorman is a native Mac app with his hat in your menu bar.
 <p align="center"><sub>The key rack, shown with demo keys.</sub></p>
 
 - **Front desk window:** each key hangs on the key rack as a room-key fob. Click the placeholder on a fob to copy it. **Check in a key** adds one, **Check out** removes it, and the **Guest book** shows what your AI did, including requests Doorman *stopped at the door*.
+- **Tag sizes:** switch the rack between **Cozy**, **Compact** and **Minimal** (top right of the rack). Doorman remembers your choice, and the rack fits more tags across as you widen the window.
 - **Move a key between clients:** drag its tag onto another client's rail, or onto **Your suite**. While you drag, every client shows a drop spot, plus **New client** to start one. If that client already has a key with the same name, Doorman asks before replacing it. From the terminal: `doorman move acme-corp/stripe mine`.
 - **Import .env:** click **Import .env** or drop a `.env` file anywhere on the window. Doorman ticks the variables that look like credentials, guesses which API each one belongs to (`STRIPE_SECRET_KEY` → `api.stripe.com`), and checks them in under short names (`stripe`). Your `.env` file is not changed.
 - **Menu bar (his hat):** open the front desk, check in a key, copy the Claude Code setup command, install the `doorman` command, or turn on Open at login. Closing the window keeps Doorman running in the menu bar.

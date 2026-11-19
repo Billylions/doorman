@@ -150,6 +150,24 @@ export function ensureRoom(idOrLabel) {
   return meta.rooms[id];
 }
 
+// ---- Window preferences (how the key rack looks) ---------------------------
+
+const PREF_DEFAULTS = { rackSize: 'cozy' };
+const RACK_SIZES = ['cozy', 'compact', 'minimal'];
+
+export function getPrefs() {
+  return { ...PREF_DEFAULTS, ...(readMeta().prefs || {}) };
+}
+
+export function setPrefs(changes = {}) {
+  const meta = readMeta();
+  const next = { ...PREF_DEFAULTS, ...(meta.prefs || {}) };
+  if (RACK_SIZES.includes(changes.rackSize)) next.rackSize = changes.rackSize;
+  meta.prefs = next;
+  writeMeta(meta);
+  return next;
+}
+
 export function renameRoom(id, label) {
   const meta = readMeta();
   if (!meta.rooms[id]) throw new Error('No such room.');

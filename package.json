@@ -1,6 +1,6 @@
 {
   "name": "doorman",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Let your AI finish the job without getting stuck on API keys. Doorman holds your keys on your Mac; your AI uses them through placeholders, so real keys never enter the chat.",
   "type": "module",
   "bin": {

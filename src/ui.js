@@ -54,6 +54,19 @@ export function startUi({ port = 0 } = {}) {
     if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) return send(403, { error: 'Bad token' });
 
     try {
+      const mv = url.pathname.match(/^\/api\/secrets\/([^/]+)\/move$/);
+      if (mv && req.method === 'POST') {
+        const id = decodeURIComponent(mv[1]);
+        const body = await readJson(req);
+        try {
+          const moved = await vault.moveSecret(id, body.room, { replace: Boolean(body.replace) });
+          vault.audit({ tool: 'ui_move', secrets: [id], to: moved.id, room: moved.room });
+          return send(200, { secret: moved, roomLabel: moved.room === vault.OWN ? 'your suite' : vault.getRoom(moved.room)?.label });
+        } catch (e) {
+          if (e.code === 'exists') return send(409, { error: e.message, exists: true });
+          throw e;
+        }
+      }
       const m = url.pathname.match(/^\/api\/secrets(?:\/([^/]+))?(\/reveal)?$/);
       if (m && !m[1] && req.method === 'GET') return send(200, { secrets: vault.listSecrets(), rooms: vault.listRooms() });
       if (m && !m[1] && req.method === 'POST') {

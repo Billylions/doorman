@@ -25,6 +25,8 @@ Usage:
   doorman unlink [folder]             Unlink a folder
   doorman where                       Which client this folder belongs to
   doorman rooms                       Your clients, their linked folders and key counts
+  doorman move <key> "<client>"       Move a key to a client ("mine" for your own keys)
+      --replace                         Replace a key with the same name there
   doorman rm <name>                   Check out (delete) a key
   doorman log                         Show recent AI usage
   doorman setup                       Show how to connect Claude Code / Cursor
@@ -212,6 +214,15 @@ async function main() {
           console.log(`      ${placeholder(s.name)}  hosts: ${s.lockHosts ? 'only ' + s.allowedHosts.join(', ') : 'any' + (s.allowedHosts.length ? ' (usually ' + s.allowedHosts.join(', ') + ')' : '')}  commands: ${s.allowCommands ? '$' + vault.envNameOf(s) : 'off'}${s.room !== vault.OWN ? '   id: ' + s.id : ''}`);
         }
       }
+      return;
+    }
+    case 'move':
+    case 'mv': {
+      if (!pos[0] || !pos[1]) throw new Error('Usage: doorman move <key> "<client>"   (use the key id from doorman list, e.g. acme-corp/stripe)');
+      const moved = await vault.moveSecret(pos[0], pos[1], { replace: Boolean(opts.replace) });
+      vault.audit({ tool: 'cli_move', secrets: [pos[0]], to: moved.id, room: moved.room });
+      const where = moved.room === vault.OWN ? 'your own keys' : vault.getRoom(moved.room).label;
+      console.log(`Moved "${pos[0]}" to ${where}. Its id is now ${moved.id}.`);
       return;
     }
     case 'rm': {

@@ -148,6 +148,21 @@ const RAW = String.raw`<!doctype html>
     background: rgba(215,38,46,.88); color: #fff3d6; font-family: var(--serif); font-size: 28px; text-align: center; padding: 40px; }
   .dropzone.on { display: flex; }
   .dropzone div { border: 3px dashed #ffc23a; border-radius: 24px; padding: 48px 56px; }
+  /* Moving a key: drag its tag onto another room's rail */
+  .fob[draggable="true"] { cursor: grab; }
+  .fob.lifted { opacity: .35; }
+  body.moving .room.ghost { display: block; }
+  .room.ghost { display: none; }
+  .rack.emptyrack { display: none; min-height: 120px; }
+  body.moving .rack.emptyrack { display: block; }
+  .rack.emptyrack .droptext, .newroom .droptext { color: var(--muted); font-size: 14px; padding: 34px 0 0 4px; }
+  body.moving .rack { outline: 2px dashed transparent; outline-offset: 10px; border-radius: 12px; transition: outline-color .15s, background .15s; }
+  body.moving .rack.target { outline-color: var(--line); }
+  body.moving .rack.over { outline-color: var(--gold); background: rgba(255,194,58,.12); }
+  .newroom { display: none; margin: 0 0 34px; border: 2px dashed var(--line); border-radius: 14px; padding: 16px 18px 26px; }
+  body.moving .newroom { display: block; }
+  .newroom.over { border-color: var(--gold); background: rgba(255,194,58,.12); }
+  .newroom .room-name { font-size: 17px; }
   /* Rooms: one per client, plus your own suite */
   .room { margin: 0 0 34px; }
   .room-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -397,6 +412,18 @@ const RAW = String.raw`<!doctype html>
   var lastKeys = '';
   function fobFor(s, n) {
       var fob = el('div', 'fob');
+      fob.draggable = true;
+      fob.addEventListener('dragstart', function (e) {
+        movingKey = s;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('application/x-doorman-key', s.id);
+        fob.classList.add('lifted');
+        document.body.classList.add('moving');
+      });
+      fob.addEventListener('dragend', function () {
+        fob.classList.remove('lifted');
+        endMove();
+      });
       fob.appendChild(el('span', 'string'));
       var paper = el('div', 'paper'); fob.appendChild(paper);
       paper.appendChild(el('span', 'eyelet'));
@@ -441,9 +468,9 @@ const RAW = String.raw`<!doctype html>
     var door = 100;
     ROOMS.forEach(function (r) {
       var keys = secrets.filter(function (s) { return s.room === r.id; });
-      if (!keys.length && !r.folders.length && r.id !== 'own') return;
-      if (r.id === 'own' && !keys.length && !r.folders.length && secrets.length) return;
-      var sec = el('div', 'room');
+      // Rooms with nothing to show only appear while you drag a key, as a place to drop it.
+      var ghost = (!keys.length && !r.folders.length && r.id !== 'own') || (r.id === 'own' && !keys.length && !r.folders.length && secrets.length);
+      var sec = el('div', 'room' + (ghost ? ' ghost' : ''));
       var head = el('div', 'room-head');
       var nm = el('div', 'room-name');
       var badge = el('span', 'door' + (r.id === 'own' ? ' own' : ''), r.id === 'own' ? '★' : String(++door));
@@ -472,11 +499,64 @@ const RAW = String.raw`<!doctype html>
       head.appendChild(addf); head.appendChild(ff);
       if (r.id !== 'own' && !r.folders.length) head.appendChild(el('div', 'room-hint', 'No project linked yet. Link one here, or your AI will ask you when it needs ' + r.label + "'s keys."));
       sec.appendChild(head);
-      var rack = el('div', 'rack');
+      var rack = el('div', 'rack' + (keys.length ? '' : ' emptyrack'));
       keys.forEach(function (s, i) { rack.appendChild(fobFor(s, i + 1)); });
-      if (keys.length) sec.appendChild(rack);
+      if (!keys.length) rack.appendChild(el('div', 'droptext', 'Drop a key here to move it to ' + (r.id === 'own' ? 'your suite' : r.label) + '.'));
+      dropTarget(rack, function () { return r.id; });
+      sec.appendChild(rack);
       list.appendChild(sec);
     });
+    // While dragging: a place to drop a key for a brand-new client.
+    var nr = el('div', 'newroom');
+    var nrn = el('div', 'room-name'); nrn.appendChild(el('span', 'door', '+')); nrn.appendChild(document.createTextNode('New client'));
+    nr.appendChild(nrn); nr.appendChild(el('div', 'droptext', 'Drop a key here to start a new client with it.'));
+    dropTarget(nr, function () {
+      var label = prompt('Which client is this key for?');
+      return label && label.trim() ? label.trim() : null;
+    });
+    list.appendChild(nr);
+  }
+
+  // ---- Moving keys between rooms by dragging their tags ------------------------
+  var movingKey = null;
+  function endMove() {
+    movingKey = null;
+    document.body.classList.remove('moving');
+    Array.prototype.forEach.call(document.querySelectorAll('.over'), function (n) { n.classList.remove('over'); });
+  }
+  function dropTarget(node, roomFor) {
+    node.addEventListener('dragover', function (e) {
+      if (!movingKey) return;
+      e.preventDefault(); e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      node.classList.add('over');
+    });
+    node.addEventListener('dragleave', function (e) {
+      if (!node.contains(e.relatedTarget)) node.classList.remove('over');
+    });
+    node.addEventListener('drop', function (e) {
+      if (!movingKey) return;
+      e.preventDefault(); e.stopPropagation();
+      var key = movingKey;
+      endMove();
+      var room = roomFor();
+      if (!room || room === key.room) return;
+      moveKey(key, room, false);
+    });
+  }
+  function moveKey(key, room, replace) {
+    api('/api/secrets/' + encodeURIComponent(key.id) + '/move', { method: 'POST', body: JSON.stringify({ room: room, replace: replace }) })
+      .then(function (j) {
+        toast('Moved ' + key.name + ' to ' + (j.roomLabel || 'its new room'));
+        lastKeys = ''; load();
+      })
+      .catch(function (e) {
+        if (/already has a key/.test(e.message) && !replace) {
+          if (confirm(e.message + ' Replace it with this one?')) moveKey(key, room, true);
+          return;
+        }
+        toast(e.message);
+      });
   }
 
   function describe(e) {
@@ -486,6 +566,7 @@ const RAW = String.raw`<!doctype html>
     if (e.tool === 'ui_copy') return { text: 'You copied ' + names };
     if (e.tool === 'ui_checkin') return { text: 'You checked in ' + names };
     if (e.tool === 'ui_checkout') return { text: 'You checked out ' + names };
+    if (e.tool === 'ui_move' || e.tool === 'cli_move') return { text: 'You moved ' + names + ' to ' + (e.room === 'own' ? 'your suite' : roomLabel(e.room)) };
     if (e.tool === 'ui_import') return { text: 'You checked in ' + e.secrets.length + ' keys for ' + (!e.room || e.room === 'own' ? 'your suite' : roomLabel(e.room)) };
     if (e.tool === 'doorman_run') return { text: 'A command ran with ' + (names || 'no keys') + ' (exit ' + e.exit + ')' };
     if (e.blocked) return { text: 'Stopped ' + names + ' at the door. ' + e.host + ' is not on the tag.', stop: true };
@@ -613,11 +694,12 @@ const RAW = String.raw`<!doctype html>
   };
   // Drag a .env file anywhere onto the window.
   var dragDepth = 0;
-  document.addEventListener('dragenter', function (e) { e.preventDefault(); dragDepth++; $('dropzone').classList.add('on'); });
-  document.addEventListener('dragleave', function (e) { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; $('dropzone').classList.remove('on'); } });
+  document.addEventListener('dragenter', function (e) { e.preventDefault(); if (movingKey) return; dragDepth++; $('dropzone').classList.add('on'); });
+  document.addEventListener('dragleave', function (e) { e.preventDefault(); if (movingKey) return; if (--dragDepth <= 0) { dragDepth = 0; $('dropzone').classList.remove('on'); } });
   document.addEventListener('dragover', function (e) { e.preventDefault(); });
   document.addEventListener('drop', function (e) {
     e.preventDefault(); dragDepth = 0; $('dropzone').classList.remove('on');
+    if (movingKey) { endMove(); return; }
     readFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
   });
 

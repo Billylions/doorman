@@ -277,6 +277,35 @@ export async function deleteSecret(id) {
   await keychainDelete(id);
 }
 
+/**
+ * Move a key to another room (your own keys or a client's). The value is copied
+ * to its new Keychain entry before the old one is removed, so nothing is lost
+ * if a step fails. If the target room already has a key with that name, it is
+ * only replaced when `replace` is true.
+ */
+export async function moveSecret(id, toRoom, { replace = false } = {}) {
+  validateId(id);
+  const meta = readMeta();
+  const s = meta.secrets[id];
+  if (!s) throw new Error(`No key "${id}".`);
+  const room = findRoom(toRoom) || (toRoom ? ensureRoom(toRoom) : null);
+  if (!room) throw new Error('Pick where to move the key.');
+  const newId = makeId(room.id, s.name);
+  if (newId === id) return { ...s };
+  if (meta.secrets[newId] && !replace) {
+    const err = new Error(`${room.id === OWN ? 'Your suite' : room.label} already has a key named "${s.name}".`);
+    err.code = 'exists';
+    throw err;
+  }
+  await keychainWrite(newId, await keychainRead(id));
+  const fresh = readMeta();
+  fresh.secrets[newId] = { ...s, id: newId, room: room.id, updatedAt: new Date().toISOString() };
+  delete fresh.secrets[id];
+  writeMeta(fresh);
+  await keychainDelete(id);
+  return { ...fresh.secrets[newId] };
+}
+
 export async function revealSecret(id) {
   validateId(id);
   if (!readMeta().secrets[id]) throw new Error(`No key "${id}".`);
